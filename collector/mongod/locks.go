@@ -15,6 +15,8 @@
 package mongod
 
 import (
+	"unicode/utf8"
+
 	"github.com/prometheus/client_golang/prometheus"
 )
 
@@ -63,6 +65,21 @@ type LockStats struct {
 // Export exports the data to prometheus.
 func (locks LockStatsMap) Export(ch chan<- prometheus.Metric) {
 	for key, locks := range locks {
+		// Remove non UTF8 bytes from keys.
+		if !utf8.ValidString(key) {
+			v := make([]rune, 0, len(key))
+			for i, r := range key {
+				if r == utf8.RuneError {
+					_, size := utf8.DecodeRuneInString(key[i:])
+					if size == 1 {
+						continue
+					}
+				}
+				v = append(v, r)
+			}
+			key = string(v)
+		}
+
 		if key == "." {
 			key = "dot"
 		}
